@@ -8,11 +8,16 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
+      margin: 0;
+    }
+    .table-wrapper {
+      overflow-x: auto;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
+      min-width: 600px;
     }
     th, td {
       border: 1px solid #ccc;
@@ -21,10 +26,24 @@
     }
     input[type="number"], input[type="date"] {
       padding: 5px;
+      width: 100%;
+      box-sizing: border-box;
     }
     tfoot td {
       font-weight: bold;
       background-color: #f0f0f0;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      th, td {
+        padding: 8px;
+        font-size: 14px;
+      }
+      h2 {
+        font-size: 20px;
+      }
     }
   </style>
 </head>
@@ -35,24 +54,26 @@
   <label for="date-picker">Select Date: </label>
   <input type="date" id="date-picker" />
 
-  <table>
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Price</th>
-        <th>Morning Quantity</th>
-        <th>Evening Quantity</th>
-        <th>Amount</th>
-      </tr>
-    </thead>
-    <tbody id="table-body"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="4">Total Amount</td>
-        <td id="total-amount">0.00</td>
-      </tr>
-    </tfoot>
-  </table>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Price</th>
+          <th>Morning Quantity</th>
+          <th>Evening Quantity</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4">Total Amount</td>
+          <td id="total-amount">0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 
   <script>
     const items = [
@@ -143,7 +164,6 @@
       }
     });
 
-    // Set default date to today
     const today = new Date().toISOString().split("T")[0];
     datePicker.value = today;
     loadData(today);
