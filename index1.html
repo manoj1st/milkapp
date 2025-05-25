@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Milk Quantity Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    label,
+    input[type="date"] {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      overflow-x: auto;
+      display: block;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+
+    tfoot td {
+      font-weight: bold;
+      background-color: #f0f0f0;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 0.8rem;
+        padding: 8px;
+      }
+
+      h2 {
+        font-size: 1.2rem;
+      }
+
+      input[type="date"] {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Milk Quantity Calculator</h2>
+
+  <label for="date-picker">Select Date:</label>
+  <input type="date" id="date-picker" />
+
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Price</th>
+        <th>Morning Qty</th>
+        <th>Evening Qty</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4">Total Amount</td>
+        <td id="total-amount">0.00</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <script>
+    const items = [
+      { name: "TM 500", price: 51.9 },
+      { name: "TM 1", price: 49.9 },
+      { name: "DTM 500", price: 47.9 },
+      { name: "SM 1", price: 54.9 },
+      { name: "GOLD 500", price: 63.9 },
+      { name: "GOLD 1", price: 62.9 },
+      { name: "SM500", price: 55.9 },
+      { name: "COW 500", price: 53.9 },
+      { name: "COW 1", price: 51.9 },
+      { name: "DELIGHT 1", price: 59.6 }
+    ];
+
+    const tableBody = document.getElementById("table-body");
+    const totalAmountCell = document.getElementById("total-amount");
+    const datePicker = document.getElementById("date-picker");
+
+    function getStorageKey(date) {
+      return `milk-data-${date}`;
+    }
+
+    function renderTable(data = {}) {
+      tableBody.innerHTML = "";
+      items.forEach((item, index) => {
+        const morningValue = data[`morning-${index}`] || "";
+        const eveningValue = data[`evening-${index}`] || "";
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.name}</td>
+          <td>${item.price}</td>
+          <td><input type="number" min="0" id="morning-${index}" value="${morningValue}" /></td>
+          <td><input type="number" min="0" id="evening-${index}" value="${eveningValue}" /></td>
+          <td id="amount-${index}">0.00</td>
+        `;
+        tableBody.appendChild(row);
+
+        document.getElementById(`morning-${index}`).addEventListener("input", () => updateAmount(index));
+        document.getElementById(`evening-${index}`).addEventListener("input", () => updateAmount(index));
+      });
+      updateAllAmounts();
+    }
+
+    function updateAmount(index) {
+      const morning = parseFloat(document.getElementById(`morning-${index}`).value) || 0;
+      const evening = parseFloat(document.getElementById(`evening-${index}`).value) || 0;
+      const price = items[index].price;
+      const amount = (morning + evening) * price;
+      document.getElementById(`amount-${index}`).innerText = amount.toFixed(2);
+      updateTotal();
+      saveData();
+    }
+
+    function updateTotal() {
+      let total = 0;
+      items.forEach((_, index) => {
+        const amt = parseFloat(document.getElementById(`amount-${index}`).innerText) || 0;
+        total += amt;
+      });
+      totalAmountCell.innerText = total.toFixed(2);
+    }
+
+    function updateAllAmounts() {
+      items.forEach((_, index) => updateAmount(index));
+    }
+
+    function saveData() {
+      const date = datePicker.value;
+      if (!date) return;
+      const data = {};
+      items.forEach((_, index) => {
+        data[`morning-${index}`] = document.getElementById(`morning-${index}`).value;
+        data[`evening-${index}`] = document.getElementById(`evening-${index}`).value;
+      });
+      localStorage.setItem(getStorageKey(date), JSON.stringify(data));
+    }
+
+    function loadData(date) {
+      const data = JSON.parse(localStorage.getItem(getStorageKey(date))) || {};
+      renderTable(data);
+    }
+
+    datePicker.addEventListener("change", () => {
+      if (datePicker.value) {
+        loadData(datePicker.value);
+      }
+    });
+
+    // Set default date to today
+    const today = new Date().toISOString().split("T")[0];
+    datePicker.value = today;
+    loadData(today);
+  </script>
+
+</body>
+</html>
