@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Milk Quantity Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      overflow-x: auto;
+      display: block;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+
+    tfoot td {
+      font-weight: bold;
+      background-color: #f0f0f0;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 0.8rem;
+        padding: 8px;
+      }
+
+      h2 {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div style="position: relative; margin-bottom: 20px; min-height: 40px;">
+    <h2 style="margin: 0; padding: 10px 0; text-align: center;">Milk Quantity Calculator</h2>
+    <button id="btn-settings" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: white; color: #333; border: 1px solid #ccc; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; line-height: 1;">⚙️</button>
+  </div>
+
+  <!-- Professional Date Picker Layout with Arrow Buttons -->
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #f8f9fa; padding: 8px 15px; border-radius: 6px; border: 1px solid #e9ecef;">
+    <label for="date-picker" style="font-weight: bold; font-size: 0.9rem; color: #495057; margin: 0;">Select Date</label>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button id="btn-prev-date" style="background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; line-height: 1; transition: background 0.2s;">◀</button>
+      <input type="date" id="date-picker" style="padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.9rem; background: white; color: #495057; font-family: Arial, sans-serif; cursor: pointer;" />
+      <button id="btn-next-date" style="background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; line-height: 1; transition: background 0.2s;">▶</button>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Price</th>
+        <th>Morning Qty</th>
+        <th>Evening Qty</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4">Total Amount</td>
+        <td id="total-amount">0.00</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <script>
+    // ==========================================
+    // === JSONBIN CONFIGURATION ===
+    const JSONBIN_BIN_ID = "6a1de1bdda38895dfe7824c6"; 
+    const JSONBIN_API_KEY = "$2a$10$s2Rn927xJZcVoyYE8A57QukYtDnTH.aLedzC90wzh.lG9L6tB8wYq"; 
+    // ==========================================
+
+    const CACHE_KEY = "milk-prices-cache";
+
+    let items = [];
+    let isEditingPrices = false;
+
+    const tableBody = document.getElementById("table-body");
+    const totalAmountCell = document.getElementById("total-amount");
+    const datePicker = document.getElementById("date-picker");
+    const btnSettings = document.getElementById("btn-settings");
+    const btnPrev = document.getElementById("btn-prev-date");
+    const btnNext = document.getElementById("btn-next-date");
+
+    const getStorageKey = (date) => `milk-data-${date}`;
+
+    // Safely parse "YYYY-MM-DD" into local Date object at midnight
+    function parseLocalDate(dateStr) {
+      const parts = dateStr.split('-');
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    // Safely format local Date object into "YYYY-MM-DD" string
+    function formatLocalDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function renderTable(data = {}) {
+      tableBody.innerHTML = "";
+      items.forEach((item, index) => {
+        const morningValue = data[`morning-${index}`] || "";
+        const eveningValue = data[`evening-${index}`] || "";
+
+        const priceCell = isEditingPrices
+          ? `<td><input type="number" step="0.01" min="0" id="price-input-${index}" value="${item.price}" style="width: 80px; padding: 4px; text-align: center;" /></td>`
+          : `<td>${item.price}</td>`;
+
+        const morningCell = isEditingPrices
+          ? `<td><input type="number" disabled value="${morningValue}" style="background-color: #f9f9f9; cursor: not-allowed;" /></td>`
+          : `<td><input type="number" min="0" id="morning-${index}" value="${morningValue}" /></td>`;
+
+        const eveningCell = isEditingPrices
+          ? `<td><input type="number" disabled value="${eveningValue}" style="background-color: #f9f9f9; cursor: not-allowed;" /></td>`
+          : `<td><input type="number" min="0" id="evening-${index}" value="${eveningValue}" /></td>`;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${item.name}</td>${priceCell}${morningCell}${eveningCell}<td id="amount-${index}">0.00</td>`;
+        tableBody.appendChild(row);
+
+        if (!isEditingPrices) {
+          document.getElementById(`morning-${index}`).addEventListener("input", () => updateAmount(index));
+          document.getElementById(`evening-${index}`).addEventListener("input", () => updateAmount(index));
+        }
+      });
+      updateAllAmounts();
+    }
+
+    function updateAmount(index) {
+      const morning = parseFloat(document.getElementById(`morning-${index}`)?.value) || 0;
+      const evening = parseFloat(document.getElementById(`evening-${index}`)?.value) || 0;
+      const amount = (morning + evening) * items[index].price;
+      document.getElementById(`amount-${index}`).innerText = amount.toFixed(2);
+      updateTotal();
+      saveData();
+    }
+
+    function updateTotal() {
+      let total = 0;
+      items.forEach((_, index) => {
+        total += parseFloat(document.getElementById(`amount-${index}`)?.innerText) || 0;
+      });
+      totalAmountCell.innerText = total.toFixed(2);
+    }
+
+    const updateAllAmounts = () => items.forEach((_, index) => updateAmount(index));
+
+    function saveData() {
+      const date = datePicker.value;
+      if (!date) return;
+      const data = {};
+      items.forEach((_, index) => {
+        data[`morning-${index}`] = document.getElementById(`morning-${index}`)?.value || "";
+        data[`evening-${index}`] = document.getElementById(`evening-${index}`)?.value || "";
+      });
+      localStorage.setItem(getStorageKey(date), JSON.stringify(data));
+    }
+
+    function loadData(date) {
+      const data = JSON.parse(localStorage.getItem(getStorageKey(date))) || {};
+      renderTable(data);
+    }
+
+    async function fetchPrices() {
+      try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+          headers: { "X-Master-Key": JSONBIN_API_KEY }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          items = resData.record.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: parseFloat(item.price)
+          }));
+          localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+        }
+      } catch (err) {
+        if (!localStorage.getItem(CACHE_KEY)) {
+          alert("No internet connection. Please connect to the internet to load current prices.");
+          tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; color: #721c24; background-color: #f8d7da; font-weight: bold; text-align: center;">⚠️ Connection Required</td></tr>`;
+          totalAmountCell.innerText = "0.00";
+          btnSettings.disabled = true;
+          btnPrev.disabled = true;
+          btnNext.disabled = true;
+          return;
+        }
+      }
+      loadData(datePicker.value);
+    }
+
+    async function savePrices() {
+      const updatedPrices = [];
+      for (let i = 0; i < items.length; i++) {
+        const val = parseFloat(document.getElementById(`price-input-${i}`).value);
+        if (isNaN(val) || val < 0) {
+          alert(`Please enter a valid price for ${items[i].name}`);
+          return;
+        }
+        updatedPrices.push({ id: items[i].id, name: items[i].name, price: val });
+      }
+
+      btnSettings.innerText = "Saving...";
+      btnSettings.disabled = true;
+
+      try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
+          body: JSON.stringify(updatedPrices)
+        });
+
+        if (response.ok) {
+          items = updatedPrices;
+          localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+          isEditingPrices = false;
+          btnSettings.innerText = "⚙️";
+          btnSettings.style.background = "white";
+          datePicker.disabled = false;
+          updateDateButtons();
+        } else {
+          throw new Error();
+        }
+      } catch (err) {
+        alert("Failed to save prices. Check your connection.");
+        isEditingPrices = true;
+        btnSettings.innerText = "Save";
+      } finally {
+        btnSettings.disabled = false;
+        loadData(datePicker.value);
+      }
+    }
+
+    // Dynamic state management for date navigation buttons (Local Timezone Safe)
+    function updateDateButtons() {
+      if (!btnPrev || !btnNext) return;
+
+      if (isEditingPrices) {
+        btnPrev.disabled = true;
+        btnPrev.style.color = "#ccc";
+        btnPrev.style.cursor = "not-allowed";
+        btnPrev.style.background = "#f1f1f1";
+        btnNext.disabled = true;
+        btnNext.style.color = "#ccc";
+        btnNext.style.cursor = "not-allowed";
+        btnNext.style.background = "#f1f1f1";
+        return;
+      }
+
+      const currentDate = parseLocalDate(datePicker.value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      currentDate.setHours(0, 0, 0, 0);
+
+      btnPrev.disabled = false;
+      btnPrev.style.color = "#333";
+      btnPrev.style.cursor = "pointer";
+      btnPrev.style.background = "white";
+
+      if (currentDate >= today) {
+        btnNext.disabled = true;
+        btnNext.style.color = "#ccc";
+        btnNext.style.cursor = "not-allowed";
+        btnNext.style.background = "#f1f1f1";
+      } else {
+        btnNext.disabled = false;
+        btnNext.style.color = "#333";
+        btnNext.style.cursor = "pointer";
+        btnNext.style.background = "white";
+      }
+    }
+
+    function changeDate(days) {
+      if (isEditingPrices) return;
+      const currentDate = parseLocalDate(datePicker.value);
+      if (isNaN(currentDate.getTime())) return;
+
+      currentDate.setDate(currentDate.getDate() + days);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      currentDate.setHours(0, 0, 0, 0);
+
+      if (currentDate > today) return;
+
+      const newDateStr = formatLocalDate(currentDate);
+      datePicker.value = newDateStr;
+      loadData(newDateStr);
+      updateDateButtons();
+    }
+
+    btnSettings.addEventListener("click", () => {
+      saveData();
+      isEditingPrices = !isEditingPrices;
+      if (isEditingPrices) {
+        btnSettings.innerText = "Save";
+        btnSettings.style.background = "#e6e6e6";
+        datePicker.disabled = true;
+        updateDateButtons();
+        loadData(datePicker.value);
+      } else {
+        savePrices();
+      }
+    });
+
+    datePicker.addEventListener("change", () => {
+      if (datePicker.value) {
+        const todayStr = formatLocalDate(new Date());
+        if (datePicker.value > todayStr) {
+          datePicker.value = todayStr;
+        }
+        loadData(datePicker.value);
+        updateDateButtons();
+      }
+    });
+
+    btnPrev.addEventListener("click", () => changeDate(-1));
+    btnNext.addEventListener("click", () => changeDate(1));
+
+    // Startup Initialization
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = formatLocalDate(today);
+    datePicker.value = todayStr;
+    datePicker.max = todayStr; // Block manual picker future select
+
+    const cachedOnBoot = localStorage.getItem(CACHE_KEY);
+    if (cachedOnBoot) {
+      items = JSON.parse(cachedOnBoot);
+      loadData(todayStr);
+      updateDateButtons();
+      fetchPrices();
+    } else {
+      tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; color: #333; text-align: center;">Syncing...</td></tr>`;
+      fetchPrices();
+    }
+  </script>
+
+</body>
+</html>
