@@ -6,7 +6,8 @@
 
     <application
         android:allowBackup="true"
-        android:label="Milk App"
+        android:icon="@drawable/ic_launcher"
+        android:label="milkapp"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Light.NoTitleBar">
         <activity
